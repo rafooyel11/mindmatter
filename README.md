@@ -70,5 +70,8 @@ Open Visual Studio Code
 # Step 5 
 Navigate to the Project Folder 'mindmatter'
 
-# Step 6 
-Write npx run expo:android
+# Step 6
+At terminal run this command
+npm install
+
+Then after that run npx expo run:android (make sure android emulator is open)
