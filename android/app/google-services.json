@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "102075739158",
+    "project_id": "mindmatter-dd722",
+    "storage_bucket": "mindmatter-dd722.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:102075739158:android:409a0d98a0f21c8a625937",
+        "android_client_info": {
+          "package_name": "com.galaxies.mindmatter"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAYbj1rR20-Qw7j1QqHZ8FxVtzTNwzK_eg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
