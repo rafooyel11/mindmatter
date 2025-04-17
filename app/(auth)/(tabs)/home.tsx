@@ -1,14 +1,41 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Image } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Image, Alert, Linking} from 'react-native';
 import { Ionicons, MaterialIcons, Entypo } from '@expo/vector-icons';
 import { MoodIcon } from '../../components/moodIcon';
 import { ActionIcon } from '../../components/actionIcon';
 import { ChatInterface } from '../../components/chatbotInterface';
+import { getAuth } from '@react-native-firebase/auth';
 
 
 export default function HomeScreen() {
 
   const [userMood, setUserMood] = useState<string | null>(null);
+  const [userName, setUserName] = useState<string>("User");
+  const auth = getAuth();
+
+  useEffect(() => {
+    const loadUserProfile = async () => {
+      try {
+        
+        const currentUser = auth.currentUser;
+
+        if (currentUser) {
+        
+          await currentUser.reload();
+          
+          if (currentUser.displayName) {
+            setUserName(currentUser.displayName);
+          } else {
+            setUserName("User");
+          }
+        }
+      } catch (error) {
+        console.error("Error loading user profile:", error);
+      }
+    };
+    
+    loadUserProfile();
+  }, []);
 
   const handleSendMessage = (message: string) => {
     // integrate ai service here
@@ -19,17 +46,35 @@ export default function HomeScreen() {
     setUserMood(mood);
   };
 
+  const handleEmergency = () => {
+    const phoneNumber = '+639949382775'
 
+    Alert.alert(
+      "Emergency Contact", 
+      "Would you like to call for emergency", [
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+        {
+          text: "Call",
+          onPress: () => {
+            Linking.openURL(`tel:${phoneNumber}`)
+          }
+        }
+      ]
+    );
+  };
 
   return (
     <View style={styles.container}>
-      <ScrollView>
+      <ScrollView contentContainerStyle={{ paddingBottom: 30 }}>
         <View style={styles.profileContainer}>
           <View style={styles.avatar}>
             <Ionicons name="person-circle-outline" size={48} color="#4B4B4B" />
           </View>
           <View>
-            <Text style={styles.name}>Rafael Herrera</Text>
+            <Text style={styles.name}>{userName}</Text>
             <Text style={styles.feeling}>
               {userMood ? `Feeling ${userMood}` : "..."}
             </Text>
@@ -45,13 +90,15 @@ export default function HomeScreen() {
           <MoodIcon label="Angry" color="#FDBA74" icon="angry" onPress={() => handleMoodSelect('Angry 😡')} />
         </View>
 
-        <ScrollView contentContainerStyle={styles.moodRow}>
-          <ActionIcon label="Take Quiz" icon="assignment" />
-          <ActionIcon label="SOS Emergency" icon="phone-in-talk" />
-        </ScrollView>
+        <View style={styles.actionRow}>
+          <ActionIcon label="Take Quiz" icon="assignment" backgroundColor="#99F6E4" color="#2A7C6E" href="/quiz"/>
+          <ActionIcon label="SOS Emergency" icon="phone-in-talk" backgroundColor="#FFEEEE" color="#E53E3E" isEmergency={ true } onPress={handleEmergency}/>
+        </View>
 
-        <ChatInterface botName="Montana AI" onSendMessage={handleSendMessage} initialMessages={[{ id: '1', text: "✨ Hello! How can I help you today?", isBot: true }]} />
-
+        <View>
+          <ChatInterface botName="Montana AI" onSendMessage={handleSendMessage} initialMessages={[{ id: '1', text: "✨ Hello! How can I help you today?", isBot: true }]} />
+        </View>
+        
 
       </ScrollView>
 
@@ -103,5 +150,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 5,
+  },
+  actionRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-evenly',
+    marginBottom: 25,
+    paddingHorizontal: 10,
   },
 });

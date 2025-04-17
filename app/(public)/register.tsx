@@ -18,12 +18,30 @@ export default function LoginScreen() {
 
   const signUp = async () => {
     setLoading(true);
+    
+    // Validate passwords match
+    if (password !== confirmPassword) {
+      alert('Passwords do not match');
+      setLoading(false);
+      return;
+    }
+    
     try {
-      await auth.createUserWithEmailAndPassword(email, password);
-      alert('User account created!');
+      // Create user account
+      const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+      
+      // Update the user profile with display name (first and last name)
+      await userCredential.user.updateProfile({
+        displayName: `${firstName} ${lastName}`,
+      });
+
+      await userCredential.user.getIdToken(true); // Refresh the token
+      // Optionally, you can store the user data in your database here
+      
+      alert('User account created successfully!');
     } catch (e: any) {
       const err = e as FirebaseError;
-      alert('Registration Failed' + err.message);
+      alert('Registration Failed: ' + err.message);
     } finally {
       setLoading(false);
     }
@@ -106,7 +124,7 @@ export default function LoginScreen() {
 
       <Link href="/forgot-password" style={styles.forgotPassword}>Forgot Password?</Link>
 
-      <TouchableOpacity style={styles.loginButton}>
+      <TouchableOpacity style={styles.loginButton} onPress={signUp} disabled={loading}>
         <Text style={styles.loginText}>Login</Text>
       </TouchableOpacity>
     </View>
