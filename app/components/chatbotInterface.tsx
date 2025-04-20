@@ -143,7 +143,7 @@ const { width, height } = Dimensions.get('window');
 const styles = StyleSheet.create({
     chatBox: {
         backgroundColor: '#EAF3F1',
-        height: 350,
+        height: 430,
         marginHorizontal: 15,
         borderRadius: 15,
         padding: 10,

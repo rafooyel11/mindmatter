@@ -77,7 +77,7 @@ const Profile = () => {
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.option}>
-          <Ionicons name="help-circle-outline" size={24} color="#699992" />
+          <Ionicons name="help-circle-outline" size={24} color="#699992" /> 
           <Text style={styles.optionText}>Help & Support</Text>
           <Ionicons name="chevron-forward" size={20} color="#cccccc" />
         </TouchableOpacity>
