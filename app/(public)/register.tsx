@@ -130,10 +130,8 @@ export default function RegisterScreen() {
               </TouchableOpacity>
             </View>
 
-            <Link href="/forgot-password" style={styles.forgotPassword}>Forgot Password?</Link>
-
             <TouchableOpacity style={styles.loginButton} onPress={signUp} disabled={loading}>
-              <Text style={styles.loginText}>Login</Text>
+              <Text style={styles.loginText}>Sign Up</Text>
             </TouchableOpacity>
           </View>
 

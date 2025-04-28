@@ -1,7 +1,7 @@
 import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView, Alert } from 'react-native'
 import React, { useState, useEffect } from 'react'
 import { Ionicons } from '@expo/vector-icons'
-import { useRouter } from 'expo-router'
+import { Link, useRouter } from 'expo-router'
 import { getApp } from '@react-native-firebase/app'
 import { getAuth, signOut } from '@react-native-firebase/auth'
 
@@ -50,7 +50,7 @@ const Profile = () => {
 
       {/* Profile Card */}
       <View style={styles.profileCard}>
-        <Image source={{ uri: user.avatar }} style={styles.avatar}/>
+        <Image source={{ uri: user.avatar }} style={styles.avatar} />
         <Text style={styles.name}>{user.name}</Text>
         <Text style={styles.email}>{user.email}</Text>
         <Text style={styles.joinDate}>Member since {user.joinDate}</Text>
@@ -58,11 +58,14 @@ const Profile = () => {
 
       {/* Profile Options */}
       <View style={styles.optionsContainer}>
-        <TouchableOpacity style={styles.option}>
-          <Ionicons name="person-outline" size={24} color="#699992" />
-          <Text style={styles.optionText}>Edit Profile</Text>
-          <Ionicons name="chevron-forward" size={20} color="#cccccc" />
-        </TouchableOpacity>
+
+        <Link href="/edit_profile" asChild>
+          <TouchableOpacity style={styles.option}>
+            <Ionicons name="person-outline" size={24} color="#699992" />
+            <Text style={styles.optionText}>Edit Profile</Text>
+            <Ionicons name="chevron-forward" size={20} color="#cccccc" />
+          </TouchableOpacity>
+        </Link>
 
         <TouchableOpacity style={styles.option}>
           <Ionicons name="notifications-outline" size={24} color="#699992" />
@@ -77,7 +80,7 @@ const Profile = () => {
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.option}>
-          <Ionicons name="help-circle-outline" size={24} color="#699992" /> 
+          <Ionicons name="help-circle-outline" size={24} color="#699992" />
           <Text style={styles.optionText}>Help & Support</Text>
           <Ionicons name="chevron-forward" size={20} color="#cccccc" />
         </TouchableOpacity>
