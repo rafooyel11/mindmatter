@@ -5,6 +5,8 @@ import { Link, useRouter } from 'expo-router'
 import { getApp } from '@react-native-firebase/app'
 import { getAuth, signOut } from '@react-native-firebase/auth'
 
+const defaultProfileImage = require('../../../assets/images/default-profile.png')
+
 const Profile = () => {
   const router = useRouter()
   const app = getApp()
@@ -13,8 +15,8 @@ const Profile = () => {
   const [user, setUser] = useState({
     name: 'John Doe',
     email: 'john.doe@example.com',
-    avatar: 'https://randomuser.me/api/portraits/men/1.jpg',
-    joinDate: 'April 2023'
+    avatar: null as any,
+    joinDate: 'March 2025',
   })
 
   // Get current user data on component mount
@@ -24,8 +26,8 @@ const Profile = () => {
       setUser({
         name: currentUser.displayName || 'User',
         email: currentUser.email || '',
-        avatar: currentUser.photoURL || 'https://randomuser.me/api/portraits/men/1.jpg',
-        joinDate: 'April 2023' // You might want to get this from user metadata
+        avatar: currentUser.photoURL || null,
+        joinDate: 'March 2025' // You might want to get this from user metadata
       })
     }
   }, [])
@@ -50,7 +52,11 @@ const Profile = () => {
 
       {/* Profile Card */}
       <View style={styles.profileCard}>
-        <Image source={{ uri: user.avatar }} style={styles.avatar} />
+        {user.avatar ? (
+          <Image source={{ uri: user.avatar }} style={styles.avatar} />
+        ) : (
+          <Image source={defaultProfileImage} style={styles.avatar} />
+        )}
         <Text style={styles.name}>{user.name}</Text>
         <Text style={styles.email}>{user.email}</Text>
         <Text style={styles.joinDate}>Member since {user.joinDate}</Text>

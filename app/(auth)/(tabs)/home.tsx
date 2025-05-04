@@ -6,27 +6,32 @@ import { ActionIcon } from '../../components/actionIcon';
 import { ChatInterface } from '../../components/chatbotInterface';
 import { getAuth } from '@react-native-firebase/auth';
 
+const defaultProfileImage = require('../../../assets/images/default-profile.png');
 
 export default function HomeScreen() {
 
   const [userMood, setUserMood] = useState<string | null>(null);
-  const [userName, setUserName] = useState<string>("User");
+  const [userAvatar, setUserAvatar] = useState<string | null>(null);
+  const [userName, setUserName] = useState<string>("User");  
   const auth = getAuth();
 
   useEffect(() => {
     const loadUserProfile = async () => {
       try {
-        
         const currentUser = auth.currentUser;
 
         if (currentUser) {
-        
           await currentUser.reload();
           
           if (currentUser.displayName) {
             setUserName(currentUser.displayName);
           } else {
             setUserName("User");
+          }
+          
+          // Set the user's profile picture if available
+          if (currentUser.photoURL) {
+            setUserAvatar(currentUser.photoURL);
           }
         }
       } catch (error) {
@@ -70,9 +75,13 @@ export default function HomeScreen() {
     <View style={styles.container}>
       <ScrollView contentContainerStyle={{ paddingBottom: 30 }}>
         <View style={styles.profileContainer}>
-          <View style={styles.avatar}>
-            <Ionicons name="person-circle-outline" size={48} color="#4B4B4B" />
-          </View>
+          {userAvatar ? (
+            <Image source={{ uri: userAvatar }} style={styles.avatarImage} />
+          ) : (
+            <View style={styles.avatar}>
+              <Ionicons name="person-circle-outline" size={48} color="#4B4B4B" />
+            </View>
+          )}
           <View>
             <Text style={styles.name}>{userName}</Text>
             <Text style={styles.feeling}>
@@ -98,10 +107,7 @@ export default function HomeScreen() {
         <View>
           <ChatInterface botName="Montana AI" onSendMessage={handleSendMessage} initialMessages={[{ id: '1', text: "✨ Hello! How can I help you today?", isBot: true }]} />
         </View>
-        
-
       </ScrollView>
-
     </View>
   );
 }
@@ -120,6 +126,12 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   avatar: {
+    marginRight: 10,
+  },
+  avatarImage: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     marginRight: 10,
   },
   name: {
