@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Image, Alert, Linking} from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Image, Alert, Linking } from 'react-native';
 import { Ionicons, MaterialIcons, Entypo } from '@expo/vector-icons';
 import { MoodIcon } from '../../components/moodIcon';
 import { ActionIcon } from '../../components/actionIcon';
 import { ChatInterface } from '../../components/chatbotInterface';
 import { getAuth } from '@react-native-firebase/auth';
+import { sendMessageToAI, ChatHistory, ChatMessage } from '../../service/ai'; 
 
 const defaultProfileImage = require('../../../assets/images/default-profile.png');
 
@@ -12,7 +13,10 @@ export default function HomeScreen() {
 
   const [userMood, setUserMood] = useState<string | null>(null);
   const [userAvatar, setUserAvatar] = useState<string | null>(null);
-  const [userName, setUserName] = useState<string>("User");  
+  const [userName, setUserName] = useState<string>("User");
+  const [chatHistory, setChatHistory] = useState<ChatHistory>([]);
+  const [isLoadingResponse, setIsLoadingResponse] = useState(false);
+
   const auth = getAuth();
 
   useEffect(() => {
@@ -22,13 +26,13 @@ export default function HomeScreen() {
 
         if (currentUser) {
           await currentUser.reload();
-          
+
           if (currentUser.displayName) {
             setUserName(currentUser.displayName);
           } else {
             setUserName("User");
           }
-          
+
           // Set the user's profile picture if available
           if (currentUser.photoURL) {
             setUserAvatar(currentUser.photoURL);
@@ -38,14 +42,61 @@ export default function HomeScreen() {
         console.error("Error loading user profile:", error);
       }
     };
-    
+
     loadUserProfile();
+
+    setChatHistory([
+      {
+        role: 'system',
+        content: `You are Montana AI, a mental health assistant. Be empathetic and helpful. 
+                  The user's name is ${userName}. Their current mood is ${userMood || 'unknown'}.`
+      }
+    ]);
   }, []);
 
-  const handleSendMessage = (message: string) => {
-    // integrate ai service here
-    console.log('User message:', message);
-  }
+  // update system when user mood changes
+  useEffect(() => {
+    if (chatHistory.length > 0) {
+      setChatHistory(prevHistory => {
+        const newHistory = [...prevHistory];
+        // Update or add system message
+        if (newHistory[0].role === 'system') {
+          newHistory[0] = {
+            role: 'system',
+            content: `You are Montana AI, a mental health assistant. Be empathetic and helpful. 
+                       The user's name is ${userName}. Their current mood is ${userMood || 'unknown'}.`
+          };
+        }
+        return newHistory;
+      });
+    }
+  }, [userMood, userName]);
+
+  const handleSendMessage = async (message: string): Promise<string> => {
+    setIsLoadingResponse(true);
+
+    try {
+      // Add user message to history
+      const updatedHistory = [
+        ...chatHistory,
+        { role: 'user', content: message } as ChatMessage
+      ];
+
+      // Send to AI service
+      const aiResponse = await sendMessageToAI(message, chatHistory);
+
+      // Add AI response to history
+      updatedHistory.push({ role: 'assistant', content: aiResponse });
+      setChatHistory(updatedHistory);
+
+      setIsLoadingResponse(false);
+      return aiResponse;
+    } catch (error) {
+      console.error('Error in chat:', error);
+      setIsLoadingResponse(false);
+      return "I'm sorry, I couldn't process your request. Please try again later.";
+    }
+  };
 
   const handleMoodSelect = (mood: string) => {
     setUserMood(mood);
@@ -101,11 +152,17 @@ export default function HomeScreen() {
 
         <View style={styles.actionRow}>
           <ActionIcon label="Take Quiz" icon="assignment" backgroundColor="#99F6E4" color="#2A7C6E" href="/quiz"/>
+          <ActionIcon label="Location" icon="pin-drop" backgroundColor="#63F582" color="#06AC2A" href="/location"/>
           <ActionIcon label="SOS Emergency" icon="phone-in-talk" backgroundColor="#FFEEEE" color="#E53E3E" isEmergency={ true } onPress={handleEmergency}/>
         </View>
 
         <View>
-          <ChatInterface botName="Montana AI" onSendMessage={handleSendMessage} initialMessages={[{ id: '1', text: "✨ Hello! How can I help you today?", isBot: true }]} />
+          <ChatInterface 
+            botName="Montana AI" 
+            onSendMessage={handleSendMessage} 
+            initialMessages={[{ id: '1', text: "✨ Hello! How can I help you today?", isBot: true }]} 
+            isLoading={isLoadingResponse}
+          />
         </View>
       </ScrollView>
     </View>

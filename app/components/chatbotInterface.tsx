@@ -12,27 +12,27 @@ type Message = {
 // chatbot props
 type ChatbotInterfaceProps = {
     initialMessages?: Message[];
-    onSendMessage?: (message: string) => void;
+    onSendMessage?: (message: string) => Promise<string>;
     botName?: string;
+    isLoading?: boolean;
 };
 
-export const ChatInterface = ({ initialMessages = [{ id: '1', text: '✨ Hello!', isBot: true }], onSendMessage, botName = 'Montana' }: ChatbotInterfaceProps) => {
+export const ChatInterface = ({ initialMessages = [{ id: '1', text: '✨ Hello!', isBot: true }], onSendMessage, botName = 'Montana', isLoading = false }: ChatbotInterfaceProps) => {
     const [messages, setMessages] = useState<Message[]>(initialMessages);
     const [inputText, setInputText] = useState('');
     const [isExpanded, setIsExpanded] = useState(false);
+    const [localLoading, setLocalLoading] = useState(false);
     const scrollViewRef = useRef<ScrollView>(null);
     const inputRef = useRef<TextInput>(null);
 
-    // autoscroll to bottom when new message is added
+    // Sync the component's loading state with the prop
     useEffect(() => {
-        setTimeout(() => {
-            scrollViewRef.current?.scrollToEnd({ animated: true });
-        }, 100);
-    }, [messages]);
+        setLocalLoading(isLoading);
+    }, [isLoading]);
 
     // handle sending messages
-    const handleSend = () => {
-        if (inputText.trim()) {
+    const handleSend = async () => {
+        if (inputText.trim() && !localLoading) {
             // add user message
             const userMessage: Message = {
                 id: Date.now().toString(),
@@ -41,22 +41,38 @@ export const ChatInterface = ({ initialMessages = [{ id: '1', text: '✨ Hello!'
             };
 
             setMessages((prevMessages) => [...prevMessages, userMessage]);
+            const messageToSend = inputText.trim();
             setInputText('');
 
-            // callback for parent component
-            if (onSendMessage) {
-                onSendMessage(inputText);
-            }
+            // Show typing indicator
+            const typingId = Date.now().toString() + '-typing';
+            setMessages(prev => [...prev, { id: typingId, text: '...', isBot: true }]);
 
-            // bot response (put openai api call here)
-            setTimeout(() => {
-                const botResponse: Message = {
-                    id: (Date.now() + 1).toString(),
-                    text: 'I received your message. This is automated response. Please connect your chatbot api for real response.',
-                    isBot: true,
-                };
-                setMessages(prevMessages => [...prevMessages, botResponse]);
-            }, 1000)
+            try {
+                if (onSendMessage) {
+                    const response = await onSendMessage(messageToSend);
+
+                    // Replace typing indicator with actual response
+                    setMessages(prev =>
+                        prev.filter(m => m.id !== typingId).concat([{
+                            id: Date.now().toString(),
+                            text: response,
+                            isBot: true
+                        }])
+                    );
+                }
+            } catch (error) {
+                console.error('Error in chat:', error);
+
+                // Replace typing indicator with error message
+                setMessages(prev =>
+                    prev.filter(m => m.id !== typingId).concat([{
+                        id: Date.now().toString(),
+                        text: "I'm sorry, I couldn't process your request right now.",
+                        isBot: true
+                    }])
+                );
+            }
         }
     };
 
@@ -75,58 +91,58 @@ export const ChatInterface = ({ initialMessages = [{ id: '1', text: '✨ Hello!'
     const renderCompactChat = () => {
         return (
             <View style={styles.chatBox}>
-            <View style={styles.headerRow}>
-                <Text style={styles.chatTitle}> Talk to {botName} </Text>
-                <TouchableOpacity onPress={toggleExpanded}>
-                    <Ionicons name="expand" size={20} color="#4B4B4B" />
-                </TouchableOpacity>
-            </View>
-            <ScrollView ref={scrollViewRef} style={styles.messagesContainer} contentContainerStyle={styles.messagesContent}>
-                {messages.map(message => (
-                    <View key={message.id} style={[styles.messageBubble, message.isBot ? styles.botBubble : styles.userBubble]}>
-                        <Text style={message.isBot ? styles.botText : styles.userText}> {message.text} </Text>
-                    </View>
-                ))}
-            </ScrollView>
-            <View style={styles.inputRow}>
-                <TextInput ref={inputRef} style={styles.input} placeholder="Reply" placeholderTextColor="#999" value={inputText} onChangeText={setInputText} multiline />
-                <TouchableOpacity style={styles.sendButton} onPress={handleSend}>
-                    <Entypo name="arrow-bold-right" size={20} color="#fff" />
-                </TouchableOpacity>
-            </View>
-        </View>
-        )
-    };
-
-    // expanded chat view
-    const renderExpandedChat = () => {
-        return(
-            <Modal visible={isExpanded} animationType="slide" presentationStyle="fullScreen">
-            <SafeAreaView style={styles.expandedContainer}>
-                <View style={styles.expandedHeader}>
-                    <TouchableOpacity onPress={toggleExpanded} style={styles.backButton}>
-                        <Ionicons name="chevron-back" size={24} color="#4B4B4B" />
+                <View style={styles.headerRow}>
+                    <Text style={styles.chatTitle}> Talk to {botName} </Text>
+                    <TouchableOpacity onPress={toggleExpanded}>
+                        <Ionicons name="expand" size={20} color="#4B4B4B" />
                     </TouchableOpacity>
-                    <Text style={styles.expandedTitle}> {botName} </Text>
-                    <View style={{ width: 24 }} />
                 </View>
-
-                <ScrollView ref={scrollViewRef} style={styles.expandedMessagesContainer} contentContainerStyle={styles.expandedMessagesContent}>
+                <ScrollView ref={scrollViewRef} style={styles.messagesContainer} contentContainerStyle={styles.messagesContent}>
                     {messages.map(message => (
                         <View key={message.id} style={[styles.messageBubble, message.isBot ? styles.botBubble : styles.userBubble]}>
                             <Text style={message.isBot ? styles.botText : styles.userText}> {message.text} </Text>
                         </View>
                     ))}
                 </ScrollView>
-
-                <View style={styles.expandedInputRow}>
-                    <TextInput ref={inputRef} style={styles.expandedInput} placeholder="Type a message..." placeholderTextColor="#999" value={inputText} onChangeText={setInputText} multiline />
+                <View style={styles.inputRow}>
+                    <TextInput ref={inputRef} style={styles.input} placeholder="Reply" placeholderTextColor="#999" value={inputText} onChangeText={setInputText} multiline />
                     <TouchableOpacity style={styles.sendButton} onPress={handleSend}>
                         <Entypo name="arrow-bold-right" size={20} color="#fff" />
                     </TouchableOpacity>
                 </View>
-            </SafeAreaView>
-        </Modal>
+            </View>
+        )
+    };
+
+    // expanded chat view
+    const renderExpandedChat = () => {
+        return (
+            <Modal visible={isExpanded} animationType="slide" presentationStyle="fullScreen">
+                <SafeAreaView style={styles.expandedContainer}>
+                    <View style={styles.expandedHeader}>
+                        <TouchableOpacity onPress={toggleExpanded} style={styles.backButton}>
+                            <Ionicons name="chevron-back" size={24} color="#4B4B4B" />
+                        </TouchableOpacity>
+                        <Text style={styles.expandedTitle}> {botName} </Text>
+                        <View style={{ width: 24 }} />
+                    </View>
+
+                    <ScrollView ref={scrollViewRef} style={styles.expandedMessagesContainer} contentContainerStyle={styles.expandedMessagesContent}>
+                        {messages.map(message => (
+                            <View key={message.id} style={[styles.messageBubble, message.isBot ? styles.botBubble : styles.userBubble]}>
+                                <Text style={message.isBot ? styles.botText : styles.userText}> {message.text} </Text>
+                            </View>
+                        ))}
+                    </ScrollView>
+
+                    <View style={styles.expandedInputRow}>
+                        <TextInput ref={inputRef} style={styles.expandedInput} placeholder="Type a message..." placeholderTextColor="#999" value={inputText} onChangeText={setInputText} multiline />
+                        <TouchableOpacity style={styles.sendButton} onPress={handleSend}>
+                            <Entypo name="arrow-bold-right" size={20} color="#fff" />
+                        </TouchableOpacity>
+                    </View>
+                </SafeAreaView>
+            </Modal>
         )
     };
 
@@ -162,7 +178,7 @@ const styles = StyleSheet.create({
     },
     messagesContainer: {
         flex: 1,
-        marginBottom: 50, 
+        marginBottom: 50,
     },
     messagesContent: {
         paddingBottom: 10,

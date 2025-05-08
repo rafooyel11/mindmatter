@@ -48,7 +48,7 @@ export const ActionIcon = ({ label, icon, onPress, color = "#4B4B4B", background
 const styles = StyleSheet.create({
     container: {
         alignItems: 'center',
-        marginHorizontal: 10,
+        marginHorizontal: -10,
         width: 120,
     },
     actionIcon: {

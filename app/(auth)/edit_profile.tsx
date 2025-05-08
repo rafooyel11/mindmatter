@@ -8,7 +8,6 @@ import { getAuth, updateProfile } from '@react-native-firebase/auth'
 
 const defaultProfileImage = require('../../assets/images/default-profile.png')
 
-const IMGBB_API_KEY = '5575a897d8cbcdde290a80418b60e6ad';
 
 const EditProfile = () => {
   const router = useRouter()
@@ -80,17 +79,15 @@ const EditProfile = () => {
               return;
             }
             const base64data = reader.result.toString().split(',')[1];
-            
-            // Create form data for ImgBB API
-            const formData = new FormData();
-            formData.append('key', IMGBB_API_KEY);
-            formData.append('image', base64data);
-            
-            // Upload to ImgBB
-            const response = await fetch('https://api.imgbb.com/1/upload', {
-              method: 'POST',
-              body: formData
-            });
+
+          // Call your existing Vercel backend instead of ImgBB directly
+          const response = await fetch('https://mindmatter-backend.vercel.app/api/upload-image', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ base64Image: base64data })
+          });
             
             const responseData = await response.json();
             
