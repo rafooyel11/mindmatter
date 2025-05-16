@@ -9,6 +9,7 @@ export default function AuthLayout() {
       <Stack.Screen name="quiz" options={{ headerShown: false, title: "Mental Health Assessment", presentation: "card" }} />
       <Stack.Screen name="location" options={{ headerShown: false, title: "GPS", presentation: "card" }} />
       <Stack.Screen name="edit_profile" options={{ headerShown: false, title: "Edit Profile", presentation: "card" }} />
+      <Stack.Screen name="users" options={{ headerShown: false, title: "Friends", presentation: "card" }} />
     </Stack>
   )
 }

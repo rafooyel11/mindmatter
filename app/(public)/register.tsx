@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Link } from 'expo-router';
 import { getAuth } from '@react-native-firebase/auth';
 import { FirebaseError } from '@firebase/app';
+import { initializeUserForChat } from '../service/init_chat';
 
 export default function RegisterScreen() {
   const [firstName, setFirstName] = useState('');
@@ -19,6 +20,7 @@ export default function RegisterScreen() {
   const dismissKeyboard = () => {
     Keyboard.dismiss();
   };
+
   const signUp = async () => {
     dismissKeyboard();
     setLoading(true);
@@ -39,8 +41,15 @@ export default function RegisterScreen() {
         displayName: `${firstName} ${lastName}`,
       });
 
+      // Initialize user for chat
+      await initializeUserForChat(userCredential.user.uid, {
+        name: `${firstName} ${lastName}`,
+        email: email,
+        // You can add avatar here if you have it
+      });
+
       await userCredential.user.getIdToken(true); // Refresh the token
-      // Optionally, you can store the user data in your database here
+      // The navigation will be handled by your RootLayout component
 
       alert('User account created successfully!');
     } catch (e: any) {

@@ -7,8 +7,6 @@ import { ChatInterface } from '../../components/chatbotInterface';
 import { getAuth } from '@react-native-firebase/auth';
 import { sendMessageToAI, ChatHistory, ChatMessage } from '../../service/ai'; 
 
-const defaultProfileImage = require('../../../assets/images/default-profile.png');
-
 export default function HomeScreen() {
 
   const [userMood, setUserMood] = useState<string | null>(null);

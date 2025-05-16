@@ -1,64 +1,11 @@
-import React, { useState } from 'react';
-import { View, Text, Image, FlatList, SafeAreaView, TouchableOpacity, TextInput, Modal, KeyboardAvoidingView, Platform } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, Image, FlatList, SafeAreaView, TouchableOpacity, TextInput, Modal, KeyboardAvoidingView, Platform, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-
-const messages = [
-  {
-    id: '1',
-    name: 'John',
-    message: 'Hi I\'m feeling well today...',
-    image: 'https://randomuser.me/api/portraits/men/1.jpg',
-    time: '10:30 AM',
-    unread: true,
-  },
-  {
-    id: '2',
-    name: 'Luca',
-    message: 'Let\'s get coffee later...',
-    image: 'https://randomuser.me/api/portraits/men/2.jpg',
-    time: 'Yesterday',
-    unread: false,
-  },
-  {
-    id: '3',
-    name: 'Michael',
-    message: 'Please help me',
-    image: 'https://randomuser.me/api/portraits/men/3.jpg',
-    time: 'Yesterday',
-    unread: true,
-  },
-  {
-    id: '4',
-    name: 'Jessica',
-    message: 'Where are you?',
-    image: 'https://randomuser.me/api/portraits/women/4.jpg',
-    time: 'Monday',
-    unread: false,
-  },
-  {
-    id: '5',
-    name: 'Mich',
-    message: 'What did you eat today?',
-    image: 'https://randomuser.me/api/portraits/men/5.jpg',
-    time: 'Apr 12',
-    unread: false,
-  },
-];
-
-// Sample chat data for the chat interface
-const chatData = {
-  '1': [
-    { id: '1', text: 'Hi there!', sender: 'other', time: '10:25 AM' },
-    { id: '2', text: 'How are you feeling today?', sender: 'me', time: '10:26 AM' },
-    { id: '3', text: 'Hi I\'m feeling well today...', sender: 'other', time: '10:30 AM' },
-  ],
-  '2': [
-    { id: '1', text: 'Hey! Are you free later?', sender: 'other', time: 'Yesterday' },
-    { id: '2', text: 'Maybe, what\'s up?', sender: 'me', time: 'Yesterday' },
-    { id: '3', text: 'Let\'s get coffee later...', sender: 'other', time: 'Yesterday' },
-  ],
-  // Add more chat histories for other users as needed
-};
+import firestore from '@react-native-firebase/firestore';
+import auth from '@react-native-firebase/auth';
+import { getUserProfiles, UserProfile } from '../../service/user_service';
+import { useRouter } from 'expo-router';
+import { getUserChatRooms, getChatMessages, sendMessage, markMessagesAsRead, UserChat, Message } from '../../service/firestore_service';
 
 const MessageItem = ({ name, message, image, time, unread, onPress }: any) => (
   <TouchableOpacity 
@@ -103,7 +50,7 @@ const MessageItem = ({ name, message, image, time, unread, onPress }: any) => (
   </TouchableOpacity>
 );
 
-const ChatBubble = ({ message, isMe }: any) => (
+const ChatBubble = ({ message, isMe }: {message: Message, isMe: boolean}) => (
   <View style={{ 
     alignSelf: isMe ? 'flex-end' : 'flex-start',
     backgroundColor: isMe ? '#DCF8C6' : '#ECECEC',
@@ -120,14 +67,153 @@ const ChatBubble = ({ message, isMe }: any) => (
 
 export default function MessagesScreen() {
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedChat, setSelectedChat] = useState(null);
+  const [selectedChat, setSelectedChat] = useState<string | null>(null);
   const [newMessage, setNewMessage] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [chatRooms, setChatRooms] = useState<UserChat[]>([]);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [userProfiles, setUserProfiles] = useState<{[key: string]: UserProfile}>({});
+  const [otherUserInChat, setOtherUserInChat] = useState<UserProfile | null>(null);
+
+  const router = useRouter();
+  const currentUser = auth().currentUser;
   
-  const filteredMessages = messages.filter(
-    message => message.name.toLowerCase().includes(searchQuery.toLowerCase())
+  // Format firestore timestamp to readable date without date-fns
+  const formatMessageTime = (timestamp: any) => {
+    if (!timestamp) return '';
+    
+    const now = new Date();
+    const messageDate = timestamp.toDate();
+    
+    // If today, show time
+    if (messageDate.toDateString() === now.toDateString()) {
+      return messageDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+    
+    // If yesterday
+    const yesterday = new Date(now);
+    yesterday.setDate(yesterday.getDate() - 1);
+    if (messageDate.toDateString() === yesterday.toDateString()) {
+      return 'Yesterday';
+    }
+    
+    // If this week, show day name
+    const diffTime = Math.abs(now.getTime() - messageDate.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays <= 7) {
+      const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+      return dayNames[messageDate.getDay()];
+    }
+    
+    // Otherwise show date
+    return messageDate.toLocaleDateString();
+  };
+
+  const openFindUsers = () => {
+    router.push('/(auth)/users');
+  };
+  
+  // Load user chat rooms
+  useEffect(() => {
+    if (!currentUser) return;
+    
+    const unsubscribe = getUserChatRooms().onSnapshot(async snapshot => {
+      const roomsData = snapshot.docs.map(doc => doc.data());
+      const roomIds = snapshot.docs.map(doc => doc.id);
+      
+      // Get all participant IDs to fetch their profiles
+      const participantIds = roomsData.flatMap(room => room.participants);
+      
+      // Remove current user ID from the list
+      const otherParticipantIds = participantIds.filter(id => id !== currentUser.uid);
+      
+      // Fetch all user profiles
+      const profiles = await getUserProfiles(otherParticipantIds);
+      setUserProfiles(profiles);
+      
+      // Create user chat data
+      const chats: UserChat[] = [];
+      
+      for (let i = 0; i < roomsData.length; i++) {
+        const roomData = roomsData[i];
+        const roomId = roomIds[i];
+        
+        // Find the other participant (not current user)
+        const otherParticipantId = roomData.participants.find((id: string) => id !== currentUser.uid);
+        if (!otherParticipantId || !profiles[otherParticipantId]) continue;
+        
+        const otherUser = profiles[otherParticipantId];
+        
+        // Check for unread messages
+        const unreadSnapshot = await firestore()
+          .collection('chatRooms')
+          .doc(roomId)
+          .collection('messages')
+          .where('read', '==', false)
+          .where('sender', '==', otherParticipantId)
+          .count()
+          .get();
+        
+        const hasUnread = unreadSnapshot.data().count > 0;
+        
+        chats.push({
+          id: roomId,
+          uid: otherParticipantId,
+          name: otherUser.name || 'Unknown User',
+          message: roomData.lastMessage || 'No messages yet',
+          image: otherUser.avatar || 'https://randomuser.me/api/portraits/lego/1.jpg',
+          time: formatMessageTime(roomData.lastMessageTime),
+          unread: hasUnread
+        });
+      }
+      
+      setChatRooms(chats);
+      setLoading(false);
+    }, error => {
+      console.error('Error fetching chat rooms:', error);
+      setLoading(false);
+    });
+    
+    return () => unsubscribe();
+  }, []);
+  
+  // Load messages when chat is selected
+  useEffect(() => {
+    if (!selectedChat) return;
+    
+    markMessagesAsRead(selectedChat);
+    
+    const unsubscribe = getChatMessages(selectedChat).onSnapshot(snapshot => {
+      const messagesData: Message[] = snapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          text: data.text,
+          sender: data.sender,
+          time: formatMessageTime(data.createdAt),
+          createdAt: data.createdAt
+        };
+      });
+      
+      setMessages(messagesData);
+      
+      // Find the other user in this chat
+      const room = chatRooms.find(room => room.id === selectedChat);
+      if (room) {
+        const profile = userProfiles[room.uid];
+        setOtherUserInChat(profile || null);
+      }
+    });
+    
+    return () => unsubscribe();
+  }, [selectedChat]);
+  
+  const filteredChatRooms = chatRooms.filter(
+    room => room.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const openChat = (id: any) => {
+  const openChat = (id: string) => {
     setSelectedChat(id);
   };
 
@@ -135,18 +221,22 @@ export default function MessagesScreen() {
     setSelectedChat(null);
   };
 
-  const sendMessage = () => {
-    if (newMessage.trim() === '') return;
-    // Here you would typically send the message to your backend
-    // For now, we'll just clear the input
-    setNewMessage('');
+  const handleSendMessage = async () => {
+    if (newMessage.trim() === '' || !selectedChat) return;
+    
+    try {
+      await sendMessage(selectedChat, newMessage.trim());
+      setNewMessage('');
+    } catch (error) {
+      console.error('Error sending message:', error);
+    }
   };
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }}>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16 }}>
         <Text style={{ fontSize: 24, fontWeight: '600' }}>Messages</Text>
-        <TouchableOpacity>
+        <TouchableOpacity onPress={openFindUsers}>
           <Ionicons name="person-add-outline" size={24} color="black" />
         </TouchableOpacity>
       </View>
@@ -179,9 +269,13 @@ export default function MessagesScreen() {
         )}
       </View>
 
-      {filteredMessages.length > 0 ? (
+      {loading ? (
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <ActivityIndicator size="large" color="#699992" />
+        </View>
+      ) : filteredChatRooms.length > 0 ? (
         <FlatList
-          data={filteredMessages}
+          data={filteredChatRooms}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
             <MessageItem 
@@ -197,7 +291,9 @@ export default function MessagesScreen() {
       ) : (
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
           <Ionicons name="chatbubble-ellipses-outline" size={60} color="#ddd" />
-          <Text style={{ marginTop: 10, color: '#999', fontSize: 16 }}>No messages found</Text>
+          <Text style={{ marginTop: 10, color: '#999', fontSize: 16 }}>
+            {searchQuery ? 'No matches found' : 'No messages yet'}
+          </Text>
         </View>
       )}
 
@@ -207,7 +303,7 @@ export default function MessagesScreen() {
         animationType="slide"
       >
         <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }}>
-          {selectedChat && (
+          {selectedChat && otherUserInChat && (
             <>
               {/* Chat Header */}
               <View style={{ 
@@ -221,20 +317,23 @@ export default function MessagesScreen() {
                   <Ionicons name="arrow-back" size={24} color="#000" />
                 </TouchableOpacity>
                 <Image 
-                  source={{ uri: messages.find(m => m.id === selectedChat)?.image }} 
+                  source={{ uri: otherUserInChat.avatar || 'https://randomuser.me/api/portraits/lego/1.jpg' }} 
                   style={{ width: 40, height: 40, borderRadius: 20, marginRight: 10 }} 
                 />
                 <Text style={{ fontSize: 18, fontWeight: '600' }}>
-                  {messages.find(m => m.id === selectedChat)?.name}
+                  {otherUserInChat.name}
                 </Text>
               </View>
 
               {/* Chat Messages */}
               <FlatList
-                data={chatData[selectedChat] || []}
+                data={messages}
                 keyExtractor={(item) => item.id}
                 renderItem={({ item }) => (
-                  <ChatBubble message={item} isMe={item.sender === 'me'} />
+                  <ChatBubble 
+                    message={item} 
+                    isMe={item.sender === currentUser?.uid} 
+                  />
                 )}
                 contentContainerStyle={{ paddingVertical: 10 }}
               />
@@ -278,7 +377,7 @@ export default function MessagesScreen() {
                       justifyContent: 'center',
                       alignItems: 'center',
                     }}
-                    onPress={sendMessage}
+                    onPress={handleSendMessage}
                     disabled={!newMessage.trim()}
                   >
                     <Ionicons name="send" size={20} color="#fff" />
